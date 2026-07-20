@@ -1,0 +1,7 @@
+node_modules/
+dist/
+# Pack CLI credentials — NEVER commit these
+.coda-credentials.json
+.coda-pack.json.bak
+*.log
+.DS_Store

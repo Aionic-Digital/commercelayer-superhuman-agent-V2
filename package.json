@@ -1,0 +1,25 @@
+{
+  "name": "commerce-layer-pack",
+  "version": "1.0.0",
+  "description": "Commerce Layer pack for Superhuman Go: product search, product details, market-aware pricing, live availability, and quote cards.",
+  "private": true,
+  "scripts": {
+    "auth": "packs auth pack.ts",
+    "validate": "packs validate pack.ts",
+    "execute": "packs execute pack.ts",
+    "upload": "packs upload pack.ts --notes \"$npm_config_notes\"",
+    "release": "packs release pack.ts",
+    "test": "mocha --require ts-node/register test/**/*.test.ts"
+  },
+  "dependencies": {
+    "@codahq/packs-sdk": "latest"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.3.0",
+    "@types/mocha": "^10.0.0",
+    "chai": "^4.3.0",
+    "mocha": "^10.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  }
+}
