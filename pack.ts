@@ -828,6 +828,8 @@ pack.addSkill({
     "5. Use ONLY data returned by these tools. Never invent prices, stock levels, discounts, lead times, delivery dates, or order commitments.",
     "6. If a tool reports the SKU was not found, say so and ask for the correct SKU. Do not produce a confident quote.",
     "7. If the request is not about products, pricing, inventory, or quotes, do nothing.",
+    "8. ALWAYS call ProductLookup for any product question - details, appearance, images, availability - even if the product was already discussed earlier in the conversation. Answering product questions from memory is not allowed. The tool result includes the product image; present it.",
+    "9. When asked what a product looks like: call ProductLookup and rely on its image and description fields only. NEVER invent visual details (fit, logo placement, material, style) that are not in the returned description. If the product has no image, say so plainly.",
   ].join(NL),
   tools: [
     {
