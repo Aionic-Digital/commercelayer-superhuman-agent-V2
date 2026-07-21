@@ -47,4 +47,5 @@ Works with any Commerce Layer organization: connect with your own org URL and in
 
 ## Changelog
 
-- 2026-07-20: Initial draft (not yet pasted into Pack Studio).
+- 2026-07-20: Initial draft.
+- 2026-07-20: Tagline + description saved to Pack Studio Listing tab. Still pending in studio: category, logo, screenshots, ToS URL, privacy policy URL, support email swap.
