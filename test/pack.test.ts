@@ -74,4 +74,50 @@ describe("ProductSearch", () => {
     assert.lengthOf(result, 1);
     assert.equal(result[0].Sku, "AI-001-BLK-L");
   });
+
+  it("matches plurals and ignores stopwords (e.g. 'white tees size M')", async () => {
+    const context = newMockExecutionContext({ endpoint: ENDPOINT });
+    context.fetcher.fetch.returns(
+      skuListResponse([
+        {
+          id: "sku_1",
+          type: "skus",
+          attributes: {
+            code: "AI-002-WHT-M",
+            name: "Aionic Digital White Tee (M)",
+            description: "Aionic Digital logo tee, white, size M.",
+            image_url: "https://img.example/wht-m.png",
+          },
+        },
+        {
+          id: "sku_2",
+          type: "skus",
+          attributes: {
+            code: "AI-001-BLK-L",
+            name: "Aionic Digital Black Sweatshirt (L)",
+            description: "Aionic Digital Logo Hoodie",
+            image_url: "https://img.example/blk-l.png",
+          },
+        },
+      ]),
+    );
+
+    const tees: any = await executeFormulaFromPackDef(
+      pack,
+      "ProductSearch",
+      ["white tees size M"] as any,
+      context,
+    );
+    assert.lengthOf(tees, 1);
+    assert.equal(tees[0].Sku, "AI-002-WHT-M");
+
+    const sweatshirts: any = await executeFormulaFromPackDef(
+      pack,
+      "ProductSearch",
+      ["sweatshirts"] as any,
+      context,
+    );
+    assert.lengthOf(sweatshirts, 1);
+    assert.equal(sweatshirts[0].Sku, "AI-001-BLK-L");
+  });
 });

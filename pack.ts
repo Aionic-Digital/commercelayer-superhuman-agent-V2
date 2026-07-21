@@ -532,13 +532,38 @@ pack.addFormula({
       );
     }
 
-    // Server-side: filter on the longest word (case-insensitive contains
-    // across name and code). Client-side: require every word to match,
-    // which also guards against the Commerce Layer behavior of silently
-    // returning unfiltered results for unsupported filters.
-    const words = trimmed.split(" ").filter(function (w) {
-      return w.length > 0;
-    });
+    // Tokenize: drop stopwords, singularize plurals (basic stemming), so
+    // queries like "white tees size M" match a product named "White Tee".
+    const stopwords = [
+      "the", "a", "an", "in", "for", "of", "and", "or", "with",
+      "size", "sizes", "our", "your", "some", "any", "please",
+    ];
+    function stem(word: string): string {
+      let w = word.toLowerCase();
+      if (w.length > 4 && w.endsWith("es")) {
+        w = w.slice(0, -2);
+      } else if (w.length > 3 && w.endsWith("s")) {
+        w = w.slice(0, -1);
+      }
+      return w;
+    }
+    const words = trimmed
+      .split(" ")
+      .filter(function (w) {
+        return w.length > 0 && stopwords.indexOf(w.toLowerCase()) === -1;
+      })
+      .map(stem);
+
+    if (words.length === 0) {
+      throw new coda.UserVisibleError(
+        "Provide a product name or partial SKU to search for.",
+      );
+    }
+
+    // Server-side: filter on the longest stemmed word (case-insensitive
+    // contains across name and code). Client-side: require every word to
+    // match, which also guards against the Commerce Layer behavior of
+    // silently returning unfiltered results for unsupported filters.
     let longest = words[0];
     for (const w of words) {
       if (w.length > longest.length) {
@@ -560,7 +585,7 @@ pack.addFormula({
         (s?.attributes?.description || "")
       ).toLowerCase();
       return words.every(function (w) {
-        return haystack.includes(w.toLowerCase());
+        return haystack.includes(w);
       });
     });
 
@@ -799,7 +824,7 @@ pack.addSkill({
     "Rules:",
     "1. For product detail or availability questions, call ProductLookup with the exact SKU code.",
     "2. For quote or pricing-for-quantity requests, call SkuQuote with the SKU, quantity, customer name (or sender domain), and market code when known. Reply with the returned card, verbatim.",
-    "3. If no exact SKU code is present, call ProductSearch with the product name or keywords. If exactly one product matches, proceed with its SKU. If several match, list them and ask which one. If none match, say so. Never invent a SKU code.",
+    "3. If no exact SKU code is present, call ProductSearch using 1-2 short, singular keywords (e.g. 'sweatshirt', 'white tee' - NOT the customer's full phrasing, plurals, or sizes). If it returns nothing, retry up to two times with a broader single keyword or a common synonym (tee / t-shirt / shirt, hoodie / sweatshirt, cap / hat) before telling the user nothing was found. If exactly one product matches, proceed with its SKU. If several match, list them and ask which one. Never invent a SKU code.",
     "4. If the organization has multiple markets and the market is unclear, call Markets and ask which market applies before quoting.",
     "5. Use ONLY data returned by these tools. Never invent prices, stock levels, discounts, lead times, delivery dates, or order commitments.",
     "6. If a tool reports the SKU was not found, say so and ask for the correct SKU. Do not produce a confident quote.",
