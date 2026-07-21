@@ -756,7 +756,6 @@ pack.addFormula({
       "",
       "Availability: " + availability,
       "Sellable Stock: " + details.stockQuantity,
-      "Stock Basis: " + details.stockSource,
       "Lead Time: " + details.leadTime,
       "",
       "Status: " + status,
