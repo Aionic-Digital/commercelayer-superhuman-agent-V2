@@ -643,6 +643,150 @@ pack.addFormula({
   },
 });
 
+// ------------------------------------------------------------
+// Sync table: Products
+//
+// One row per SKU, with market-aware pricing and stock computed
+// from stock items net of reservations. Stock freshness is bound
+// to the table's sync schedule; for quote-grade live numbers use
+// ProductLookup / SkuQuote.
+// ------------------------------------------------------------
+
+const ProductRowSchema = coda.makeObjectSchema({
+  properties: {
+    sku: { type: coda.ValueType.String, description: "SKU code." },
+    name: { type: coda.ValueType.String, description: "Product name." },
+    productDescription: {
+      type: coda.ValueType.String,
+      description: "Product description.",
+    },
+    image: {
+      type: coda.ValueType.String,
+      codaType: coda.ValueHintType.ImageReference,
+      description: "Product image.",
+    },
+    unitPrice: {
+      type: coda.ValueType.Number,
+      description: "Unit price (major currency units).",
+    },
+    unitPriceFormatted: {
+      type: coda.ValueType.String,
+      description: "Formatted unit price.",
+    },
+    currency: { type: coda.ValueType.String, description: "Currency code." },
+    available: {
+      type: coda.ValueType.Boolean,
+      description: "Whether the SKU has sellable stock as of the last sync.",
+    },
+    stockQuantity: {
+      type: coda.ValueType.Number,
+      description: "Sellable stock (stock items net of reservations) as of the last sync.",
+    },
+    market: {
+      type: coda.ValueType.String,
+      description: "Market used for pricing context.",
+    },
+  },
+  displayProperty: "name",
+  idProperty: "sku",
+  featuredProperties: ["image", "sku", "unitPriceFormatted", "stockQuantity", "available"],
+  titleProperty: "name",
+  subtitleProperties: ["sku", "unitPriceFormatted", "stockQuantity"],
+  snippetProperty: "productDescription",
+  imageProperty: "image",
+});
+
+pack.addSyncTable({
+  name: "Products",
+  identityName: "Product",
+  schema: ProductRowSchema,
+  connectionRequirement: coda.ConnectionRequirement.Required,
+  formula: {
+    name: "SyncProducts",
+    description:
+      "Syncs the full product catalog from Commerce Layer with prices and stock.",
+    parameters: [marketParameter],
+    execute: async function ([market], context) {
+      const pageNumber = (context.sync.continuation?.page as number) || 1;
+      const marketInfo = await resolveMarket(context, market);
+
+      const body = await clGet(context, "/api/skus", {
+        include: "prices.price_list,stock_items.reserved_stock",
+        "page[size]": 25,
+        "page[number]": pageNumber,
+      });
+
+      const includedById: Record<string, any> = {};
+      for (const item of body?.included || []) {
+        includedById[item.type + ":" + item.id] = item;
+      }
+
+      const rows = (body?.data || []).map(function (record: any) {
+        const attributes = record?.attributes || {};
+
+        // Price: match the market's price list when given, else first price.
+        const priceRefs = record?.relationships?.prices?.data || [];
+        const prices = priceRefs
+          .map(function (ref: any) { return includedById["prices:" + ref.id]; })
+          .filter(Boolean);
+        let price: any = null;
+        if (marketInfo) {
+          price = prices.find(function (p: any) {
+            return p?.relationships?.price_list?.data?.id === marketInfo.priceListId;
+          }) || null;
+        } else {
+          price = prices[0] || null;
+        }
+        const priceAttributes = price?.attributes || {};
+        const currency =
+          priceAttributes.currency_code || (marketInfo ? marketInfo.currency : "") || "";
+        const unitPrice =
+          typeof priceAttributes.amount_float === "number" ? priceAttributes.amount_float : 0;
+
+        // Stock: sum stock items, minus reservations.
+        const stockRefs = record?.relationships?.stock_items?.data || [];
+        let stock = 0;
+        for (const ref of stockRefs) {
+          const stockItem = includedById["stock_items:" + ref.id];
+          const quantity = stockItem?.attributes?.quantity;
+          stock += typeof quantity === "number" ? quantity : 0;
+          const reservedRef = stockItem?.relationships?.reserved_stock?.data;
+          if (reservedRef) {
+            const reserved = includedById["reserved_stocks:" + reservedRef.id];
+            const reservedQuantity = reserved?.attributes?.quantity;
+            stock -= typeof reservedQuantity === "number" ? reservedQuantity : 0;
+          }
+        }
+        if (stock < 0) {
+          stock = 0;
+        }
+
+        return {
+          sku: attributes.code || "",
+          name: attributes.name || "",
+          productDescription: attributes.description || "",
+          image: attributes.image_url || "",
+          unitPrice: unitPrice,
+          unitPriceFormatted: price
+            ? (priceAttributes.formatted_amount || formatMoney(unitPrice, currency))
+            : "Unavailable",
+          currency: currency,
+          available: stock > 0,
+          stockQuantity: stock,
+          market: marketInfo ? marketInfo.name : "All markets (unscoped)",
+        };
+      });
+
+      let continuation;
+      const pageCount = body?.meta?.page_count;
+      if (typeof pageCount === "number" && pageNumber < pageCount) {
+        continuation = { page: pageNumber + 1 };
+      }
+      return { result: rows, continuation: continuation };
+    },
+  },
+});
+
 pack.addFormula({
   name: "SkuQuote",
   description:

@@ -16,6 +16,7 @@ A configurable pack that connects Superhuman Go (and Coda docs) to any Commerce 
 | `SkuQuote(sku, [quantity], [customer], [market])` | Quantity-aware quote with availability verdict and a preformatted, email-ready quote card. |
 | `Markets()` | Lists the org's markets with codes and currencies (also powers market autocomplete). |
 | `HealthCheck()` | Connection diagnostic. |
+| **Products** (sync table) | The full catalog as a live table: one row per SKU with image, market-aware price, and reservation-aware stock. Refreshes on the doc's sync schedule; use ProductLookup/SkuQuote for quote-grade live numbers. |
 
 One Go skill, **Commerce Layer Assistant**, exposes ProductSearch, ProductLookup, SkuQuote, and Markets as agent tools with guardrails (never invent prices/stock/SKUs; search by name when no SKU is given; ask when ambiguous).
 
