@@ -24,7 +24,8 @@ pack.setUserAuthentication({
   endpointDomain: "commercelayer.io",
   // Shown as a help link in the connect dialog. Enable once SETUP.md is
   // hosted publicly (GitHub repo URL or your docs site):
-  // instructionsUrl: "https://github.com/YOUR-ORG/commerce-layer-pack/blob/main/SETUP.md",
+  instructionsUrl:
+    "https://github.com/Aionic-Digital/commercelayer-superhuman-agent-V2/blob/main/SETUP.md",
   getConnectionName: async function (context) {
     return (context.endpoint || "Commerce Layer").replace("https://", "");
   },
@@ -64,12 +65,20 @@ async function clGet(
   } catch (error: any) {
     // CRITICAL: re-throw 401 so the platform re-runs the token
     // exchange (Commerce Layer integration tokens expire ~2h).
-    if (coda.StatusCodeError.isStatusCodeError(error) && error.statusCode === 401) {
+    if (
+      coda.StatusCodeError.isStatusCodeError(error) &&
+      error.statusCode === 401
+    ) {
       throw error;
     }
     const status = error?.statusCode ?? error?.status ?? "unknown";
     throw new coda.UserVisibleError(
-      "Commerce Layer request failed (status " + status + ") on " + path + ". " + (error?.message || ""),
+      "Commerce Layer request failed (status " +
+        status +
+        ") on " +
+        path +
+        ". " +
+        (error?.message || ""),
     );
   }
 }
@@ -114,7 +123,9 @@ async function resolveMarket(
   const market = body?.data?.[0];
   if (!market) {
     throw new coda.UserVisibleError(
-      "Market with code '" + marketCode + "' was not found. Use the Markets formula to list valid market codes.",
+      "Market with code '" +
+        marketCode +
+        "' was not found. Use the Markets formula to list valid market codes.",
     );
   }
   const priceListId = market?.relationships?.price_list?.data?.id || "";
@@ -188,15 +199,20 @@ async function fetchSkuDetails(
       : "No price found in the price list of market " + market.name;
   } else {
     price = prices[0] || null;
-    priceSource = prices.length > 1
-      ? "WARNING: org has multiple price lists and no market was specified; showing the first price found. Pass a market code for accurate pricing."
-      : "Default price list";
+    priceSource =
+      prices.length > 1
+        ? "WARNING: org has multiple price lists and no market was specified; showing the first price found. Pass a market code for accurate pricing."
+        : "Default price list";
   }
   const priceAttributes = price?.attributes || {};
-  const currency = priceAttributes.currency_code || (market ? market.currency : "") || "";
-  const unitPrice = typeof priceAttributes.amount_float === "number" ? priceAttributes.amount_float : 0;
+  const currency =
+    priceAttributes.currency_code || (market ? market.currency : "") || "";
+  const unitPrice =
+    typeof priceAttributes.amount_float === "number"
+      ? priceAttributes.amount_float
+      : 0;
   const unitPriceFormatted = price
-    ? (priceAttributes.formatted_amount || formatMoney(unitPrice, currency))
+    ? priceAttributes.formatted_amount || formatMoney(unitPrice, currency)
     : "Unavailable";
 
   // 4. Inventory. Preferred source: the SKU inventory attribute
@@ -205,7 +221,8 @@ async function fetchSkuDetails(
   //    not linked to a market, where the inventory attribute
   //    reports 0 even though sellable stock exists.
   const inventory = attributes.inventory || {};
-  const inventoryQuantity = typeof inventory.quantity === "number" ? inventory.quantity : 0;
+  const inventoryQuantity =
+    typeof inventory.quantity === "number" ? inventory.quantity : 0;
 
   const stockItems = includedOf(detail, "stock_items");
   const reservedStocks = includedOf(detail, "reserved_stocks");
@@ -225,14 +242,17 @@ async function fetchSkuDetails(
   let stockSource = "Market-scoped inventory (net of reserved stock)";
   if (inventoryQuantity === 0 && stockFromItems > 0) {
     stockQuantity = stockFromItems;
-    stockSource = "Stock items minus reservations. NOTE: market-scoped inventory reports 0 — check that your stock locations are linked to a market in Commerce Layer.";
+    stockSource =
+      "Stock items minus reservations. NOTE: market-scoped inventory reports 0 — check that your stock locations are linked to a market in Commerce Layer.";
   }
   const available = Boolean(inventory.available) || stockQuantity > 0;
 
   let leadTime = "Not available";
   const levels = Array.isArray(inventory.levels) ? inventory.levels : [];
   for (const level of levels) {
-    const leadTimes = Array.isArray(level?.delivery_lead_times) ? level.delivery_lead_times : [];
+    const leadTimes = Array.isArray(level?.delivery_lead_times)
+      ? level.delivery_lead_times
+      : [];
     if (leadTimes.length > 0) {
       const lt = leadTimes[0];
       const minDays = lt?.min?.days;
@@ -265,13 +285,18 @@ async function fetchSkuDetails(
 const marketParameter = coda.makeParameter({
   type: coda.ParameterType.String,
   name: "market",
-  description: "Optional Commerce Layer market code (see the Markets formula). Strongly recommended when the org has more than one market or price list.",
+  description:
+    "Optional Commerce Layer market code (see the Markets formula). Strongly recommended when the org has more than one market or price list.",
   optional: true,
   autocomplete: async function (context, search) {
     const body = await clGet(context, "/api/markets", { "page[size]": 25 });
     const options = (body?.data || []).map(function (m: any) {
       return {
-        display: (m?.attributes?.name || "") + " (" + (m?.attributes?.code || "") + ")",
+        display:
+          (m?.attributes?.name || "") +
+          " (" +
+          (m?.attributes?.code || "") +
+          ")",
         value: m?.attributes?.code || "",
       };
     });
@@ -286,9 +311,15 @@ const marketParameter = coda.makeParameter({
 const MarketSchema = coda.makeObjectSchema({
   properties: {
     name: { type: coda.ValueType.String, description: "Market name." },
-    code: { type: coda.ValueType.String, description: "Market code (use this as the market parameter)." },
+    code: {
+      type: coda.ValueType.String,
+      description: "Market code (use this as the market parameter).",
+    },
     id: { type: coda.ValueType.String, description: "Market ID." },
-    currency: { type: coda.ValueType.String, description: "Currency of the market's price list." },
+    currency: {
+      type: coda.ValueType.String,
+      description: "Currency of the market's price list.",
+    },
   },
   displayProperty: "name",
   idProperty: "id",
@@ -298,17 +329,50 @@ const ProductSchema = coda.makeObjectSchema({
   properties: {
     sku: { type: coda.ValueType.String, description: "SKU code." },
     name: { type: coda.ValueType.String, description: "Product name." },
-    productDescription: { type: coda.ValueType.String, description: "Product description." },
-    image: { type: coda.ValueType.String, codaType: coda.ValueHintType.ImageReference, description: "Product image." },
-    unitPrice: { type: coda.ValueType.Number, description: "Unit price (major currency units)." },
-    unitPriceFormatted: { type: coda.ValueType.String, description: "Formatted unit price." },
+    productDescription: {
+      type: coda.ValueType.String,
+      description: "Product description.",
+    },
+    image: {
+      type: coda.ValueType.String,
+      codaType: coda.ValueHintType.ImageReference,
+      description: "Product image.",
+    },
+    unitPrice: {
+      type: coda.ValueType.Number,
+      description: "Unit price (major currency units).",
+    },
+    unitPriceFormatted: {
+      type: coda.ValueType.String,
+      description: "Formatted unit price.",
+    },
     currency: { type: coda.ValueType.String, description: "Currency code." },
-    priceSource: { type: coda.ValueType.String, description: "Which price list the price came from, including any accuracy warnings." },
-    available: { type: coda.ValueType.Boolean, description: "Whether the SKU is currently available." },
-    stockQuantity: { type: coda.ValueType.Number, description: "Sellable stock quantity, net of reserved stock." },
-    stockSource: { type: coda.ValueType.String, description: "How stock was computed, including any configuration warnings." },
-    leadTime: { type: coda.ValueType.String, description: "Estimated delivery lead time, when configured." },
-    market: { type: coda.ValueType.String, description: "Market used for pricing/inventory context." },
+    priceSource: {
+      type: coda.ValueType.String,
+      description:
+        "Which price list the price came from, including any accuracy warnings.",
+    },
+    available: {
+      type: coda.ValueType.Boolean,
+      description: "Whether the SKU is currently available.",
+    },
+    stockQuantity: {
+      type: coda.ValueType.Number,
+      description: "Sellable stock quantity, net of reserved stock.",
+    },
+    stockSource: {
+      type: coda.ValueType.String,
+      description:
+        "How stock was computed, including any configuration warnings.",
+    },
+    leadTime: {
+      type: coda.ValueType.String,
+      description: "Estimated delivery lead time, when configured.",
+    },
+    market: {
+      type: coda.ValueType.String,
+      description: "Market used for pricing/inventory context.",
+    },
   },
   displayProperty: "name",
   titleProperty: "name",
@@ -319,10 +383,20 @@ const ProductSchema = coda.makeObjectSchema({
 
 const ProductSearchResultSchema = coda.makeObjectSchema({
   properties: {
-    sku: { type: coda.ValueType.String, description: "SKU code — pass this to ProductLookup or SkuQuote." },
+    sku: {
+      type: coda.ValueType.String,
+      description: "SKU code — pass this to ProductLookup or SkuQuote.",
+    },
     name: { type: coda.ValueType.String, description: "Product name." },
-    productDescription: { type: coda.ValueType.String, description: "Product description." },
-    image: { type: coda.ValueType.String, codaType: coda.ValueHintType.ImageReference, description: "Product image." },
+    productDescription: {
+      type: coda.ValueType.String,
+      description: "Product description.",
+    },
+    image: {
+      type: coda.ValueType.String,
+      codaType: coda.ValueHintType.ImageReference,
+      description: "Product image.",
+    },
   },
   displayProperty: "name",
   titleProperty: "name",
@@ -333,22 +407,65 @@ const ProductSearchResultSchema = coda.makeObjectSchema({
 
 const QuoteSchema = coda.makeObjectSchema({
   properties: {
-    customer: { type: coda.ValueType.String, description: "Customer or company name." },
+    customer: {
+      type: coda.ValueType.String,
+      description: "Customer or company name.",
+    },
     sku: { type: coda.ValueType.String, description: "SKU code." },
     productName: { type: coda.ValueType.String, description: "Product name." },
-    image: { type: coda.ValueType.String, codaType: coda.ValueHintType.ImageReference, description: "Product image." },
-    quantity: { type: coda.ValueType.Number, description: "Requested quantity." },
-    unitPrice: { type: coda.ValueType.Number, description: "Unit price (major currency units)." },
-    unitPriceFormatted: { type: coda.ValueType.String, description: "Formatted unit price." },
-    total: { type: coda.ValueType.Number, description: "Quote total (unit price x quantity; volume tiers not applied)." },
-    totalFormatted: { type: coda.ValueType.String, description: "Formatted quote total." },
-    stockQuantity: { type: coda.ValueType.Number, description: "Sellable stock, net of reserved stock." },
-    availability: { type: coda.ValueType.String, description: "Available / Partially available / Unavailable / SKU not found." },
-    leadTime: { type: coda.ValueType.String, description: "Estimated delivery lead time, when configured." },
+    image: {
+      type: coda.ValueType.String,
+      codaType: coda.ValueHintType.ImageReference,
+      description: "Product image.",
+    },
+    quantity: {
+      type: coda.ValueType.Number,
+      description: "Requested quantity.",
+    },
+    unitPrice: {
+      type: coda.ValueType.Number,
+      description: "Unit price (major currency units).",
+    },
+    unitPriceFormatted: {
+      type: coda.ValueType.String,
+      description: "Formatted unit price.",
+    },
+    total: {
+      type: coda.ValueType.Number,
+      description:
+        "Quote total (unit price x quantity; volume tiers not applied).",
+    },
+    totalFormatted: {
+      type: coda.ValueType.String,
+      description: "Formatted quote total.",
+    },
+    stockQuantity: {
+      type: coda.ValueType.Number,
+      description: "Sellable stock, net of reserved stock.",
+    },
+    availability: {
+      type: coda.ValueType.String,
+      description:
+        "Available / Partially available / Unavailable / SKU not found.",
+    },
+    leadTime: {
+      type: coda.ValueType.String,
+      description: "Estimated delivery lead time, when configured.",
+    },
     status: { type: coda.ValueType.String, description: "Quote status." },
-    nextAction: { type: coda.ValueType.String, description: "Recommended next action." },
-    summary: { type: coda.ValueType.String, description: "One-line business summary." },
-    card: { type: coda.ValueType.String, description: "Preformatted quote card, ready to paste into an email reply." },
+    nextAction: {
+      type: coda.ValueType.String,
+      description: "Recommended next action.",
+    },
+    summary: {
+      type: coda.ValueType.String,
+      description: "One-line business summary.",
+    },
+    card: {
+      type: coda.ValueType.String,
+      description:
+        "Preformatted quote card, ready to paste into an email reply.",
+    },
   },
   displayProperty: "sku",
   titleProperty: "productName",
@@ -363,7 +480,8 @@ const QuoteSchema = coda.makeObjectSchema({
 
 pack.addFormula({
   name: "Markets",
-  description: "Lists the Commerce Layer markets of the connected organization, with their codes and currencies. Use a market code as the market parameter of ProductLookup and SkuQuote.",
+  description:
+    "Lists the Commerce Layer markets of the connected organization, with their codes and currencies. Use a market code as the market parameter of ProductLookup and SkuQuote.",
   parameters: [],
   resultType: coda.ValueType.Array,
   items: MarketSchema,
@@ -377,7 +495,9 @@ pack.addFormula({
     const priceLists = includedOf(body, "price_lists");
     return (body?.data || []).map(function (m: any) {
       const priceListId = m?.relationships?.price_list?.data?.id;
-      const priceList = priceLists.find(function (p: any) { return p.id === priceListId; });
+      const priceList = priceLists.find(function (p: any) {
+        return p.id === priceListId;
+      });
       return {
         name: m?.attributes?.name || "",
         code: m?.attributes?.code || "",
@@ -390,12 +510,14 @@ pack.addFormula({
 
 pack.addFormula({
   name: "ProductSearch",
-  description: "Searches Commerce Layer products by name, keywords, or partial SKU code and returns matching products with their SKU codes. Use this when you do not have an exact SKU code, then pass the returned SKU to ProductLookup or SkuQuote.",
+  description:
+    "Searches Commerce Layer products by name, keywords, or partial SKU code and returns matching products with their SKU codes. Use this when you do not have an exact SKU code, then pass the returned SKU to ProductLookup or SkuQuote.",
   parameters: [
     coda.makeParameter({
       type: coda.ParameterType.String,
       name: "query",
-      description: "Product name, keywords, or partial SKU code, e.g. 'black sweatshirt' or 'AI-001'.",
+      description:
+        "Product name, keywords, or partial SKU code, e.g. 'black sweatshirt' or 'AI-001'.",
     }),
   ],
   resultType: coda.ValueType.Array,
@@ -405,14 +527,18 @@ pack.addFormula({
   execute: async function ([query], context) {
     const trimmed = (query || "").trim();
     if (!trimmed) {
-      throw new coda.UserVisibleError("Provide a product name or partial SKU to search for.");
+      throw new coda.UserVisibleError(
+        "Provide a product name or partial SKU to search for.",
+      );
     }
 
     // Server-side: filter on the longest word (case-insensitive contains
     // across name and code). Client-side: require every word to match,
     // which also guards against the Commerce Layer behavior of silently
     // returning unfiltered results for unsupported filters.
-    const words = trimmed.split(" ").filter(function (w) { return w.length > 0; });
+    const words = trimmed.split(" ").filter(function (w) {
+      return w.length > 0;
+    });
     let longest = words[0];
     for (const w of words) {
       if (w.length > longest.length) {
@@ -426,8 +552,16 @@ pack.addFormula({
     });
 
     const matches = (body?.data || []).filter(function (s: any) {
-      const haystack = ((s?.attributes?.name || "") + " " + (s?.attributes?.code || "") + " " + (s?.attributes?.description || "")).toLowerCase();
-      return words.every(function (w) { return haystack.includes(w.toLowerCase()); });
+      const haystack = (
+        (s?.attributes?.name || "") +
+        " " +
+        (s?.attributes?.code || "") +
+        " " +
+        (s?.attributes?.description || "")
+      ).toLowerCase();
+      return words.every(function (w) {
+        return haystack.includes(w.toLowerCase());
+      });
     });
 
     return matches.map(function (s: any) {
@@ -443,7 +577,8 @@ pack.addFormula({
 
 pack.addFormula({
   name: "ProductLookup",
-  description: "Looks up a Commerce Layer SKU by exact code and returns product details, market-correct pricing, and live availability (net of reserved stock).",
+  description:
+    "Looks up a Commerce Layer SKU by exact code and returns product details, market-correct pricing, and live availability (net of reserved stock).",
   parameters: [
     coda.makeParameter({
       type: coda.ParameterType.String,
@@ -460,7 +595,9 @@ pack.addFormula({
     const details = await fetchSkuDetails(context, sku, market);
     if (!details) {
       throw new coda.UserVisibleError(
-        "SKU '" + sku + "' was not found in Commerce Layer. Check the exact SKU code (codes are case-sensitive).",
+        "SKU '" +
+          sku +
+          "' was not found in Commerce Layer. Check the exact SKU code (codes are case-sensitive).",
       );
     }
     return {
@@ -483,7 +620,8 @@ pack.addFormula({
 
 pack.addFormula({
   name: "SkuQuote",
-  description: "Builds a quote for a Commerce Layer SKU and quantity: market-correct unit price, total, live availability verdict, and a preformatted quote card. Total is unit price x quantity; volume price tiers are not applied.",
+  description:
+    "Builds a quote for a Commerce Layer SKU and quantity: market-correct unit price, total, live availability verdict, and a preformatted quote card. Total is unit price x quantity; volume price tiers are not applied.",
   parameters: [
     coda.makeParameter({
       type: coda.ParameterType.String,
@@ -537,20 +675,23 @@ pack.addFormula({
         availability: "SKU not found",
         leadTime: "Unknown",
         status: "Unable to quote",
-        nextAction: "Ask the customer to confirm the exact SKU or product variant.",
+        nextAction:
+          "Ask the customer to confirm the exact SKU or product variant.",
         summary: "SKU " + sku + " was not found in Commerce Layer.",
         card: notFoundCard,
       };
     }
 
     const total = details.unitPrice * requestedQuantity;
-    const totalFormatted = details.unitPriceFormatted === "Unavailable"
-      ? "Unavailable"
-      : formatMoney(total, details.currency);
+    const totalFormatted =
+      details.unitPriceFormatted === "Unavailable"
+        ? "Unavailable"
+        : formatMoney(total, details.currency);
 
     let availability = "Unavailable";
     let status = "Unable to fulfill requested quantity";
-    let nextAction = "Ask whether the customer wants an alternative SKU or replenishment timing.";
+    let nextAction =
+      "Ask whether the customer wants an alternative SKU or replenishment timing.";
     if (details.stockQuantity >= requestedQuantity) {
       availability = "Available";
       status = "Quote ready";
@@ -558,10 +699,23 @@ pack.addFormula({
     } else if (details.stockQuantity > 0) {
       availability = "Partially available";
       status = "Partial availability";
-      nextAction = "Confirm whether the customer wants the available quantity (" + details.stockQuantity + ") or a backorder option.";
+      nextAction =
+        "Confirm whether the customer wants the available quantity (" +
+        details.stockQuantity +
+        ") or a backorder option.";
     }
 
-    const summary = customerName + " requested " + requestedQuantity + " unit(s) of " + details.code + ". Commerce Layer shows " + details.stockQuantity + " sellable unit(s) (" + availability.toLowerCase() + ").";
+    const summary =
+      customerName +
+      " requested " +
+      requestedQuantity +
+      " unit(s) of " +
+      details.code +
+      ". Commerce Layer shows " +
+      details.stockQuantity +
+      " sellable unit(s) (" +
+      availability.toLowerCase() +
+      ").";
 
     const card = [
       "Quote Ready for Review",
@@ -609,19 +763,24 @@ pack.addFormula({
 
 pack.addFormula({
   name: "HealthCheck",
-  description: "Diagnostic: verifies that the connection can authenticate and reach the Commerce Layer org.",
+  description:
+    "Diagnostic: verifies that the connection can authenticate and reach the Commerce Layer org.",
   parameters: [],
   resultType: coda.ValueType.String,
   cacheTtlSecs: 0,
   connectionRequirement: coda.ConnectionRequirement.Required,
   execute: async function ([], context) {
     const body = await clGet(context, "/api/skus", { "page[size]": 1 });
-    return JSON.stringify({
-      ok: true,
-      endpoint: context.endpoint,
-      recordCount: body?.meta?.record_count ?? null,
-      firstSkuCode: body?.data?.[0]?.attributes?.code ?? null,
-    }, null, 2);
+    return JSON.stringify(
+      {
+        ok: true,
+        endpoint: context.endpoint,
+        recordCount: body?.meta?.record_count ?? null,
+        firstSkuCode: body?.data?.[0]?.attributes?.code ?? null,
+      },
+      null,
+      2,
+    );
   },
 });
 
@@ -632,7 +791,8 @@ pack.addFormula({
 pack.addSkill({
   name: "CommerceLayerAssistant",
   displayName: "Commerce Layer Assistant",
-  description: "Answers product, pricing, inventory, and quote questions using live Commerce Layer data: product search by name, product details by SKU, market-aware pricing, real-time availability, and ready-to-send quote cards.",
+  description:
+    "Answers product, pricing, inventory, and quote questions using live Commerce Layer data: product search by name, product details by SKU, market-aware pricing, real-time availability, and ready-to-send quote cards.",
   prompt: [
     "You help sales and support staff answer product, pricing, inventory, and quote questions using live Commerce Layer data.",
     "",
